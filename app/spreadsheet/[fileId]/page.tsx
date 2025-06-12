@@ -7,7 +7,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Spreadsheet } from "@/components/spreadsheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BulkRowActions } from "@/components/bulk-row-actions"
 
 export default function SpreadsheetPage() {
   const params = useParams()
@@ -47,35 +46,14 @@ export default function SpreadsheetPage() {
     alert(`Exporting data as ${format}...`)
   }
 
-  const handleAddRows = (count: number) => {
+  const handleAddRow = () => {
     const newData = [...data]
-    for (let i = 0; i < count; i++) {
-      const newRow = Array(data[0]?.length || 0).fill("")
-      if (newRow.length > 0) {
-        newRow[0] = `Row ${data.length + i}`
-      }
-      newData.push(newRow)
+    const newRow = Array(data[0]?.length || 0).fill("")
+    if (newRow.length > 0) {
+      newRow[0] = `Row ${data.length}`
     }
-    setData(newData)
-  }
-
-  const handleDeleteLastRows = (count: number) => {
-    if (data.length <= 1) return // Don't delete the header row
-    const newData = [...data]
-    const rowsToDelete = Math.min(count, newData.length - 1) // Keep at least the header row
-    newData.splice(newData.length - rowsToDelete, rowsToDelete)
-    setData(newData)
-  }
-
-  const handleDuplicateLastRow = () => {
-    if (data.length <= 1) return // Need at least one data row to duplicate
-    const newData = [...data]
-    const lastRow = [...newData[newData.length - 1]]
-    if (lastRow[0] && typeof lastRow[0] === "string" && lastRow[0].startsWith("Row ")) {
-      lastRow[0] = `Row ${data.length}`
-    }
-    newData.push(lastRow)
-    setData(newData)
+    newData.push(newRow)
+    setData([...newData]) // Create a new array reference to ensure re-render
   }
 
   // Generate mock data based on file name
@@ -116,7 +94,7 @@ export default function SpreadsheetPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Link href="/">
             <Button variant="ghost" size="icon">
@@ -130,15 +108,10 @@ export default function SpreadsheetPage() {
             <Save className="h-4 w-4 mr-2" />
             Save
           </Button>
-          <Button variant="outline" onClick={() => handleAddRows(1)}>
+          <Button variant="outline" onClick={handleAddRow}>
             <Plus className="h-4 w-4 mr-2" />
             Add Row
           </Button>
-          <BulkRowActions
-            onAddRows={handleAddRows}
-            onDeleteLastRows={handleDeleteLastRows}
-            onDuplicateLastRow={handleDuplicateLastRow}
-          />
           <div className="relative">
             <Tabs defaultValue="csv">
               <TabsList className="grid w-[180px] grid-cols-2">

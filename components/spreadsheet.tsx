@@ -19,12 +19,19 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
   const [editValue, setEditValue] = useState<string>("")
   const [gridData, setGridData] = useState<any[][]>([])
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
+  const [openRowMenu, setOpenRowMenu] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Initialize grid data from props
   useEffect(() => {
     setGridData(data)
   }, [data])
+
+  // Update parent component when grid data changes
+  const updateData = (newData: any[][]) => {
+    setGridData(newData)
+    onChange(newData)
+  }
 
   const handleCellClick = (row: number, col: number) => {
     setActiveCell({ row, col })
@@ -48,8 +55,7 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
       const { row, col } = activeCell
       const newData = [...gridData]
       newData[row][col] = editValue
-      setGridData(newData)
-      onChange(newData)
+      updateData(newData)
       setActiveCell(null)
     }
   }
@@ -120,9 +126,10 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
     }
 
     const newData = [...gridData.slice(0, index + 1), newRow, ...gridData.slice(index + 1)]
+    updateData(newData)
 
-    setGridData(newData)
-    onChange(newData)
+    // Close the dropdown menu after action
+    setOpenRowMenu(null)
   }
 
   const deleteRow = (index: number) => {
@@ -130,9 +137,10 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
     if (index === 0) return
 
     const newData = [...gridData.slice(0, index), ...gridData.slice(index + 1)]
+    updateData(newData)
 
-    setGridData(newData)
-    onChange(newData)
+    // Close the dropdown menu after action
+    setOpenRowMenu(null)
   }
 
   const moveRowUp = (index: number) => {
@@ -144,8 +152,12 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
     newData[index] = newData[index - 1]
     newData[index - 1] = temp
 
-    setGridData(newData)
-    onChange(newData)
+    updateData(newData)
+
+    // Close the dropdown menu after action
+    setOpenRowMenu(null)
+    // Update hovered row to follow the moved row
+    setHoveredRow(index - 1)
   }
 
   const moveRowDown = (index: number) => {
@@ -157,8 +169,12 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
     newData[index] = newData[index + 1]
     newData[index + 1] = temp
 
-    setGridData(newData)
-    onChange(newData)
+    updateData(newData)
+
+    // Close the dropdown menu after action
+    setOpenRowMenu(null)
+    // Update hovered row to follow the moved row
+    setHoveredRow(index + 1)
   }
 
   // Generate column labels (A, B, C, ...)
@@ -203,7 +219,7 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
             key={`row-${rowIndex}`}
             className="grid grid-cols-[40px_40px_repeat(auto-fill,minmax(100px,1fr))]"
             onMouseEnter={() => setHoveredRow(rowIndex)}
-            onMouseLeave={() => setHoveredRow(null)}
+            onMouseLeave={() => (hoveredRow === rowIndex ? setHoveredRow(null) : null)}
           >
             {/* Row header */}
             <div className="h-10 border-b border-r flex items-center justify-center bg-muted font-medium text-muted-foreground sticky left-0">
@@ -212,39 +228,53 @@ export function Spreadsheet({ data, onChange }: SpreadsheetProps) {
 
             {/* Row actions */}
             <div className="h-10 border-b border-r flex items-center justify-center bg-muted">
-              {hoveredRow === rowIndex && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      <MoveVertical className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => addRow(rowIndex)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Insert row below
+              <DropdownMenu
+                open={openRowMenu === rowIndex}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setOpenRowMenu(rowIndex)
+                  } else if (openRowMenu === rowIndex) {
+                    setOpenRowMenu(null)
+                  }
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-6 w-6",
+                      hoveredRow === rowIndex || openRowMenu === rowIndex ? "opacity-100" : "opacity-0",
+                    )}
+                  >
+                    <MoveVertical className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => addRow(rowIndex)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Insert row below
+                  </DropdownMenuItem>
+                  {rowIndex > 0 && (
+                    <DropdownMenuItem onClick={() => deleteRow(rowIndex)}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete row
                     </DropdownMenuItem>
-                    {rowIndex > 0 && (
-                      <DropdownMenuItem onClick={() => deleteRow(rowIndex)}>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete row
-                      </DropdownMenuItem>
-                    )}
-                    {rowIndex > 1 && (
-                      <DropdownMenuItem onClick={() => moveRowUp(rowIndex)}>
-                        <ChevronUp className="h-4 w-4 mr-2" />
-                        Move up
-                      </DropdownMenuItem>
-                    )}
-                    {rowIndex > 0 && rowIndex < gridData.length - 1 && (
-                      <DropdownMenuItem onClick={() => moveRowDown(rowIndex)}>
-                        <ChevronDown className="h-4 w-4 mr-2" />
-                        Move down
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                  )}
+                  {rowIndex > 1 && (
+                    <DropdownMenuItem onClick={() => moveRowUp(rowIndex)}>
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                      Move up
+                    </DropdownMenuItem>
+                  )}
+                  {rowIndex > 0 && rowIndex < gridData.length - 1 && (
+                    <DropdownMenuItem onClick={() => moveRowDown(rowIndex)}>
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                      Move down
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Row cells */}
