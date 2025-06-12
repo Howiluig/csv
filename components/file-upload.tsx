@@ -44,6 +44,15 @@ export function FileUpload() {
     setUploadProgress(0)
 
     try {
+      // Read the file content
+      const fileContent = await readFileContent(file)
+
+      // Parse the CSV data
+      const parsedData = parseCSV(fileContent)
+
+      // Store the parsed data in sessionStorage for the spreadsheet page to access
+      sessionStorage.setItem("spreadsheetData", JSON.stringify(parsedData))
+
       // Simulate upload progress
       const interval = setInterval(() => {
         setUploadProgress((prev) => {
@@ -55,8 +64,8 @@ export function FileUpload() {
         })
       }, 100)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
       clearInterval(interval)
       setUploadProgress(100)
 
@@ -65,16 +74,79 @@ export function FileUpload() {
         router.push(`/spreadsheet/${encodeURIComponent(file.name)}`)
       }, 500)
     } catch (err) {
-      setError("Failed to upload file. Please try again.")
+      console.error("Error processing file:", err)
+      setError("Failed to process file. Please check the file format and try again.")
       setUploading(false)
     }
+  }
+
+  // Function to read file content
+  const readFileContent = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          resolve(event.target.result as string)
+        } else {
+          reject(new Error("Failed to read file"))
+        }
+      }
+
+      reader.onerror = () => {
+        reject(new Error("Error reading file"))
+      }
+
+      reader.readAsText(file)
+    })
+  }
+
+  // Function to parse CSV content
+  const parseCSV = (content: string): string[][] => {
+    // Split by lines
+    const lines = content.split(/\r\n|\n/)
+
+    // Remove empty lines
+    const nonEmptyLines = lines.filter((line) => line.trim() !== "")
+
+    // Parse each line
+    return nonEmptyLines.map((line) => {
+      // Handle quoted values with commas inside them
+      const result = []
+      let inQuotes = false
+      let currentValue = ""
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+
+        if (char === '"') {
+          inQuotes = !inQuotes
+        } else if (char === "," && !inQuotes) {
+          result.push(currentValue)
+          currentValue = ""
+        } else {
+          currentValue += char
+        }
+      }
+
+      // Add the last value
+      result.push(currentValue)
+
+      // Remove quotes from values
+      return result.map((value) => {
+        if (value.startsWith('"') && value.endsWith('"')) {
+          return value.substring(1, value.length - 1)
+        }
+        return value
+      })
+    })
   }
 
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Upload Data</CardTitle>
-        <CardDescription>Upload your CSV or Excel file to view and edit as a spreadsheet</CardDescription>
+        <CardDescription>Upload your CSV file to view and edit as a spreadsheet</CardDescription>
       </CardHeader>
       <CardContent>
         {error && (
@@ -89,13 +161,13 @@ export function FileUpload() {
           <Upload className="h-8 w-8 mb-4 text-gray-500" />
           <div className="space-y-2">
             <p className="text-sm font-medium">Drag and drop your file here or click to browse</p>
-            <p className="text-xs text-gray-500">Supports CSV and Excel files (up to 10MB)</p>
+            <p className="text-xs text-gray-500">Supports CSV files (up to 10MB)</p>
           </div>
           <input
             type="file"
             id="file-upload"
             className="hidden"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             onChange={handleFileChange}
             disabled={uploading}
           />
@@ -123,14 +195,14 @@ export function FileUpload() {
           <div className="mt-4 space-y-2">
             <Progress value={uploadProgress} className="h-2" />
             <p className="text-xs text-center text-muted-foreground">
-              {uploadProgress < 100 ? "Uploading..." : "Processing file..."}
+              {uploadProgress < 100 ? "Processing file..." : "Ready to view..."}
             </p>
           </div>
         )}
       </CardContent>
       <CardFooter>
         <Button className="w-full" disabled={!file || uploading} onClick={handleUpload}>
-          {uploading ? "Uploading..." : "Upload and View as Spreadsheet"}
+          {uploading ? "Processing..." : "Upload and View as Spreadsheet"}
         </Button>
       </CardFooter>
     </Card>
